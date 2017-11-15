@@ -1,0 +1,100 @@
+import bpy
+
+# Set measuring method—to be added
+
+
+# Set parameters
+# Set tread dimensions
+width = 1.5
+height = 0.25
+depth = 0.5
+# Set number of steps per flight
+steps = 6
+# Set number of flights for the stairdase
+flights = 4
+# Set handrail parameters—not yet functional
+includeHandrail = True
+includeHandrailInner = True
+includeHandrailOuter = True
+handrailHeight = 2
+
+
+# Create tread
+# Define vertices and faces of tread
+treadVerts = [((width/2),depth,0), (0,depth,0), (0,0,0), ((width/2),0,0), ((width/2),depth,height), (0,depth,height), (0,0,height), ((width/2),0,height)]
+treadFaces = [(0,1,2,3), (4,5,6,7), (0,4,5,1), (2,6,7,3), (3,7,4,0)]
+
+# Define mesh and object
+myTreadMesh = bpy.data.meshes.new("TreadMesh")
+myTreadObject = bpy.data.objects.new("Flight", myTreadMesh)
+
+# Set location and scene of object
+myTreadObject.location = bpy.context.scene.cursor_location
+bpy.context.scene.objects.link(myTreadObject)
+
+# Create mesh
+myTreadMesh.from_pydata(treadVerts,[],treadFaces)
+myTreadMesh.update(calc_edges = True)
+
+# Add Mirror modifier to create other half of tread
+myTreadObject.modifiers.new("MirrorTread", type="MIRROR")
+# Set Mirror parameters
+myTreadObject.modifiers["MirrorTread"].use_x = True
+
+# Add Array modifier for treads in the flight
+myTreadObject.modifiers.new("ArrayTread", type="ARRAY")
+# Set array parameters
+# Place empty to control tread displacement
+treadDisp = bpy.ops.object.empty_add(type='PLAIN_AXES')
+#treadDisp.name = "treadDisplacement"
+bpy.ops.transform.translate (value = (0, depth, height))
+# Set Array modifier to use tread displacer
+myTreadObject.modifiers["ArrayTread"].use_relative_offset = False
+myTreadObject.modifiers["ArrayTread"].use_object_offset = True
+myTreadObject.modifiers["ArrayTread"].offset_object = bpy.data.objects['Empty']
+myTreadObject.modifiers["ArrayTread"].count = steps
+
+# Add Array modifier for flights in the staircase
+myTreadObject.modifiers.new("ArrayFlight", type="ARRAY")
+# Set Array parameters
+# Place empty to control flight displacement and rotation
+flightDisp = bpy.ops.object.empty_add(type='PLAIN_AXES')
+#flightDisp.name = flightDisplacement
+bpy.ops.transform.translate (value = (-width, (depth*steps), (height*(steps+1))))
+bpy.ops.transform.rotate (value=3.14159, axis=(0,0,1))
+# Set Array modifier to use flight displacer
+myTreadObject.modifiers["ArrayFlight"].use_relative_offset = False
+myTreadObject.modifiers["ArrayFlight"].use_object_offset = True
+myTreadObject.modifiers["ArrayFlight"].offset_object = bpy.data.objects['Empty.001']
+myTreadObject.modifiers["ArrayFlight"].count = flights
+
+# Make landing object
+# Define vertices and faces of landing
+landingVerts = [(width/2,width,0), ((width*-1.5),width,0), ((width*-1.5),0,0), (width/2,0,0), (width/2,width,height), ((width*-1.5),width,height), ((width*-1.5),0,height), (width/2,0,height)]
+landingFaces = [(0,1,2,3), (4,5,6,7), (0,4,5,1), (2,6,7,3), (3,7,4,0), (1,2,6,5)]
+
+# Define mesh and object
+myLandingMesh = bpy.data.meshes.new("LandingMesh")
+myLandingObject = bpy.data.objects.new("Landing", myLandingMesh)
+
+# Set location and scene of object
+myLandingObject.location = bpy.context.scene.cursor_location
+bpy.context.scene.objects.link(myLandingObject)
+
+# Create mesh
+myLandingMesh.from_pydata(landingVerts,[],landingFaces)
+myLandingMesh.update(calc_edges = True)
+
+# Use landing object as end cap for each flight
+bpy.data.objects["Flight"].modifiers["ArrayTread"].end_cap = bpy.data.objects["Landing"]
+bpy.data.objects["Landing"].hide = True
+
+# Set modification "handle" object
+# This empty is parented to all the key objects, so you can use it to adjust the location, scaling, and rotation of the entire staircase.
+# Add and name the empty
+adjustHandle = bpy.ops.object.empty_add(type='SINGLE_ARROW')
+bpy.context.object.name = "Adjustment Handle"
+# Parent the handle to the flight and the two empties
+bpy.data.objects["Flight"].parent = bpy.data.objects["Adjustment Handle"]
+bpy.data.objects["Empty"].parent = bpy.data.objects["Adjustment Handle"]
+bpy.data.objects["Empty.001"].parent = bpy.data.objects["Adjustment Handle"]
